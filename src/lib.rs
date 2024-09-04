@@ -15,14 +15,10 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut results: Vec<_> = Vec::new();
-
-    for line in contents.lines() {
-        if line.contains(query) {
-            results.push(line);
-        }
-    }
-    results
+    contents
+        .lines()
+        .filter(|line| line.contains(query))
+        .collect()
 }
 fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
     let mut results: Vec<_> = Vec::new();
@@ -45,13 +41,17 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn build(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
-            return Err("not enough arguments");
-        }
+    pub fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
+        args.next(); // skip the commandline
 
-        let query = args[1].clone();
-        let file_path = args[2].clone();
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Need to provide both query and file_path"),
+        };
+        let file_path = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Need to provide file_path - query provided"),
+        };
         let ignore_case = env::var("SREP_IGNORE_CASE").is_ok_and(|var| var.starts_with("t"));
 
         Ok(Config {
@@ -68,11 +68,13 @@ mod cfg_tests {
 
     #[test]
     fn build_config_with_no_params() {
-        let result = Config::build(&["program-name-no-args".to_string()]);
+        let command_line = "program-name-no-args";
+        let args = command_line.split_whitespace().map(|arg| String::from(arg));
+        let result = Config::build(args);
 
         assert!(!result.is_ok());
         assert!(result.is_err());
-        let expected_err_message = "arguments";
+        let expected_err_message = "query and file_path";
         let error_message = result.err().unwrap();
         assert!(
             error_message.contains(expected_err_message),
@@ -81,11 +83,13 @@ mod cfg_tests {
     }
     #[test]
     fn build_config_with_one_params() {
-        let result = Config::build(&["program-name-no-args".to_string(), "foo".to_string()]);
+        let command_line = "program-name-no-args foo";
+        let args = command_line.split_whitespace().map(|arg| String::from(arg));
+        let result = Config::build(args);
 
         assert!(!result.is_ok());
         assert!(result.is_err());
-        let expected_err_message = "arguments";
+        let expected_err_message = "provide file_path";
         let error_message = result.err().unwrap();
         assert!(
             error_message.contains(expected_err_message),
@@ -94,11 +98,9 @@ mod cfg_tests {
     }
     #[test]
     fn build_config_with_two_params() {
-        let result = Config::build(&[
-            "program-name-no-args".to_string(),
-            "foo".to_string(),
-            "bar".to_string(),
-        ]);
+        let command_line = "program-name-no-args foo bar";
+        let args = command_line.split_whitespace().map(|arg| String::from(arg));
+        let result = Config::build(args);
 
         match result {
             Ok(config) => {
