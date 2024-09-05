@@ -1,5 +1,11 @@
+//! srep lib
+//!
+//! functions to do searching for a text in a specified file
+//!
 use std::{env, error::Error, fs};
 
+/// searches for text in a file as specified in the passed Config
+///
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.file_path)?;
 
@@ -28,6 +34,7 @@ fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
         .collect()
 }
 
+/// Configuration specification of the search to be performed
 pub struct Config {
     pub query: String,
     pub file_path: String,
